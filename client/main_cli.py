@@ -1,25 +1,46 @@
 import os, getpass, json, base64
-from core.crypto import CryptoEngine
-from core.storage import LocalVaultStorage
+from client.core.crypto import CryptoEngine
+from client.core.storage import LocalVaultStorage
+from client.network.scanner import NetworkScanner
 
 vault_path = os.environ.get('VAULT_FILE_PATH','vault.json')
 
 def run_station():
+    scanner = NetworkScanner()
+
     if not os.path.exists(vault_path):
         print("Creating a new local security profile.")
         master_pw = getpass.getpass()
         crypto = CryptoEngine(master_pw)
+        live_devices = scanner.parse_results(scanner.scan_network())
+        is_safe = True
+        scanner.authorized_macs = list(live_devices.values())
     else:
         with open(vault_path, 'r') as file:
             content = json.load(file)
             salt = content["salt"]
             decoded_salt = base64.b64decode(salt)
-            pw = getpass.getpass()
-            crypto = CryptoEngine(pw, decoded_salt)
+            saved_macs = content.get("authorized_macs", [])
+        pw = getpass.getpass()
+        crypto = CryptoEngine(pw, decoded_salt)
+        scanner.authorized_macs = content["authorized_macs"]
+        live_devices = scanner.parse_results(scanner.scan_network())
+        is_safe = scanner.verify_parameters(live_devices)
 
-    storage = LocalVaultStorage(vault_path, crypto)
+    if not is_safe:
+        print("\n!!! SECURITY ALERT: UNREGISTERED MAC ADDRESS DETECTED ON THIS NETWORK !!!")
+        print("Application locked down to prevent potential credential sniffing.")
+        return
+    else:
+        print("Local Area Network validated. Environment secure.")
+
+    storage = LocalVaultStorage(vault_path, crypto, scanner.authorized_macs)
+
+    if not os.path.exists(vault_path):
+        storage.save()
 
     while True:
+        print("\n=== LIFESTYLE SECURITY STATION ===")
         print("[1] Store New Password Entry")
         print("[2] Retrieve Password Profile Lookup")
         print("[3] Safe Station Disconnect")
@@ -32,7 +53,6 @@ def run_station():
             password = str(input("Enter profile password: "))
 
             storage.add_entry(site_name, username, password)
-            
             print("Succesful profile creation.")
 
         elif choice == "2":

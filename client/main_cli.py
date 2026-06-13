@@ -1,7 +1,7 @@
 import os, getpass, json, base64
-from client.core.crypto import CryptoEngine
-from client.core.storage import LocalVaultStorage
-from client.network.scanner import NetworkScanner
+from core.crypto import CryptoEngine
+from core.storage import LocalVaultStorage
+from network.scanner import NetworkScanner
 
 vault_path = os.environ.get('VAULT_FILE_PATH','vault.json')
 
@@ -66,3 +66,5 @@ def run_station():
         elif choice == "3":
             print("Session safely closed.")
             break
+if __name__ == "__main__":
+    run_station()

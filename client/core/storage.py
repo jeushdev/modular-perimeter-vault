@@ -1,5 +1,6 @@
-import os, json, base64
-from client.core.crypto import CryptoEngine
+import os, json, base64, sys
+from core.crypto import CryptoEngine
+from cryptography.exceptions import InvalidTag
 
 class LocalVaultStorage:
     def __init__(self, file_path: str, crypto_engine: CryptoEngine, authorized_macs: list=None):
@@ -44,7 +45,11 @@ class LocalVaultStorage:
 
             self.mac_whitelist = loaded_text.get("authorized_macs", [])
 
-            flat_string = self.crypto.decrypt(clean_dictionary)
+            try:
+                flat_string = self.crypto.decrypt(clean_dictionary)
+            except (InvalidTag, ValueError):
+                print("\n[!] Authentication Failed: Incorrect master password or corrupted vault data.")
+                sys.exit(1)
             self.entries = json.loads(flat_string)
         else:
             return

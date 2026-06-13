@@ -41,7 +41,7 @@ class CryptoEngine:
 
         decryptor = Cipher(
             algorithms.AES(self._derived_key),
-            modes.GCM(nonce)
+            modes.GCM(nonce, tag)
         ).decryptor()
 
         decrypted_bytes = decryptor.update(ciphertext) + decryptor.finalize()

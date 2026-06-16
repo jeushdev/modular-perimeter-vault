@@ -2,10 +2,10 @@ import os
 import getpass
 import json
 import base64
-from client.core.crypto import CryptoEngine
-from client.core.storage import LocalVaultStorage
-from client.network.scanner import NetworkScanner
-from client.core.waf_middleware import InputSanitizer  # Import WAF Engine
+from core.crypto import CryptoEngine
+from core.storage import LocalVaultStorage
+from network.scanner import NetworkScanner
+from core.waf_middleware import InputSanitizer  # Import WAF Engine
 
 vault_path = os.environ.get('VAULT_FILE_PATH', 'vault.json')
 

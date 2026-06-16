@@ -1,29 +1,38 @@
-import os, getpass, json, base64
-from core.crypto import CryptoEngine
-from core.storage import LocalVaultStorage
-from network.scanner import NetworkScanner
+import os
+import getpass
+import json
+import base64
+from client.core.crypto import CryptoEngine
+from client.core.storage import LocalVaultStorage
+from client.network.scanner import NetworkScanner
+from client.core.waf_middleware import InputSanitizer  # Import WAF Engine
 
-vault_path = os.environ.get('VAULT_FILE_PATH','vault.json')
+vault_path = os.environ.get('VAULT_FILE_PATH', 'vault.json')
 
 def run_station():
     scanner = NetworkScanner()
-
+    sanitizer = InputSanitizer()  
+    
     if not os.path.exists(vault_path):
         print("Creating a new local security profile.")
-        master_pw = getpass.getpass()
+        master_pw = getpass.getpass("Set your Master Password: ")
         crypto = CryptoEngine(master_pw)
+        
         live_devices = scanner.parse_results(scanner.scan_network())
-        is_safe = True
         scanner.authorized_macs = list(live_devices.values())
+        is_safe = True
+        
     else:
         with open(vault_path, 'r') as file:
             content = json.load(file)
             salt = content["salt"]
             decoded_salt = base64.b64decode(salt)
             saved_macs = content.get("authorized_macs", [])
-        pw = getpass.getpass()
+            
+        pw = getpass.getpass("Enter Master Password to unlock: ")
         crypto = CryptoEngine(pw, decoded_salt)
-        scanner.authorized_macs = content["authorized_macs"]
+        
+        scanner.authorized_macs = saved_macs
         live_devices = scanner.parse_results(scanner.scan_network())
         is_safe = scanner.verify_parameters(live_devices)
 
@@ -48,23 +57,29 @@ def run_station():
         choice = input("Enter your choice: ")
 
         if choice == "1":
-            site_name = str(input("Enter the website name/service name of this profile: "))
-            username = str(input("Enter profile username: "))
-            password = str(input("Enter profile password: "))
+            raw_site = input("Enter website/service domain: ")
+            raw_user = input("Enter username: ")
+            raw_pass = input("Enter password: ")
+
+            site_name = sanitizer.sanitize_string(raw_site)
+            username = sanitizer.sanitize_string(raw_user)
+            password = sanitizer.sanitize_string(raw_pass)
 
             storage.add_entry(site_name, username, password)
-            print("Succesful profile creation.")
+            print("Successful profile creation.")
 
         elif choice == "2":
-            site_name = str(input("Enter the website name/service name you want to retrieve: "))
+            site_name = input("Enter the website/service name to retrieve: ")
             if site_name in storage.entries:
                 account_info = storage.entries[site_name]
-                print(f"The username for this profile is {account_info['user']}.")
-                print(f"The password for this profile is {account_info['pass']}.")
+                print(f"-> Username: {account_info['user']}")
+                print(f"-> Password: {account_info['pass']}")
             else:
                 print("No matching service name found.")
+                
         elif choice == "3":
-            print("Session safely closed.")
+            print("Session safely closed. Goodbye!")
             break
+
 if __name__ == "__main__":
     run_station()
